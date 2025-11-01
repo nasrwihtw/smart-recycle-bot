@@ -99,6 +99,107 @@ services:
 
 **Beispiel-Usage**:
 ```bash
+## Start with Dockerfile
+## Mircoservice A: recycle-analytics
+cd ../../recycle-embed-chat/app
+
+docker build -t recycle-embed-chat:latest .
+
+## use instead of $OPENAI_API_KEY the open ai you have
+docker run --rm -it \
+  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+  -e QDRANT_URL="http://host.docker.internal:6333" \
+  recycle-embed-chat:latest
+
+  🚮 Smart Recycle Bot - Ihr Assistent für Mülltrennung!
+Beschreiben Sie einen Gegenstand und ich sage Ihnen, wie man ihn entsorgt.
+':exit' zum Beenden
+
+🧐 Was möchten Sie entsorgen? Zeitung
+
+🚮 **Zeitung**
+
+📦 **Kategorie:** PAPER
+📝 **Anleitung:** Zeitungen, Kartons, Bücher → Blaue Tonne. Sauber und trocken halten.
+
+💡 **Beispiel:** Zeitung
+------------------------------------------------------------
+🧐 Was möchten Sie entsorgen? Bananenschale
+
+🚮 **Bananenschale**
+
+📦 **Kategorie:** ORGANIC
+📝 **Anleitung:** Obstresten, Gemüseabfälle, Kaffeesatz → Biotonne. Keine Plastiktüten verwenden.
+
+💡 **Beispiel:** Bananenschale
+------------------------------------------------------------
+🧐 Was möchten Sie entsorgen? :exit
+👋 Danke fürs Recycling!
+
+
+
+## Mircoservice B: recycle-analytics
+cd ../../recycle-analytics-api/app
+docker build -t recycle-analytics-api:latest .
+docker run --rm -p 8080:8080 \
+  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+  -e QDRANT_URL="http://host.docker.internal:6333" \
+  recycle-analytics-api:latest
+
+  
+## use the instead of $OPENAI_API_KEY the open AI key you have
+docker run --rm -p 8080:8080 \
+  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+  -e QDRANT_URL="http://host.docker.internal:6333" \
+  recycle-analytics-api:latest
+
+   docker run --rm -p 8080:8080 \
+  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+  -e QDRANT_URL="http://host.docker.internal:6333" \
+  recycle-analytics-api:latest
+
+#Erfolgsmeldung:
+
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080
+
+#API testen (in neuem Terminal)
+# Health Check
+curl -s http://localhost:8080/health | jq
+
+#Erfolgsmeldung:
+{
+  "status": "healthy",
+  "service": "recycle-analytics-api"
+}
+
+### Analyse eines Gegenstands
+curl -s -X POST http://localhost:8080/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"item_description": "Plastikflasche"}' | jq
+
+#Erwartete Antwort:
+  {
+  "item": "Plastikflasche",
+  "category": "plastic",
+  "confidence": 0.823456,
+  "instructions": "Plastikflaschen, Verpackungen, Folien → Gelber Sack/Gelbe Tonne. Bitte reinigen.",
+  "similar_items": ["Plastikflasche", "Joghurtbecher", "Shampooflasche"],
+  "environmental_tip": "Recycling spart Erdöl und reduziert Meeresverschmutzung um 80%"
+}
+
+# Weitere Tests
+curl -s -X POST http://localhost:8080/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"item_description": "Batterie"}' | jq
+
+curl -s -X POST http://localhost:8080/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"item_description": "Glasflasche"}' | jq
+
+  ## diese Commands ausführen nach der Erstellung docker compose.yaml to start the two Mircoservices
 docker compose exec recycle-chat python recycle_agent.py ingest
 docker compose exec -it recycle-chat python recycle_agent.py
 ```
