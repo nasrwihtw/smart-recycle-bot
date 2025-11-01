@@ -200,8 +200,60 @@ curl -s -X POST http://localhost:8080/analyze \
   -d '{"item_description": "Glasflasche"}' | jq
 
   ## diese Commands ausführen nach der Erstellung docker compose.yaml to start the two Mircoservices
+  export OPENAI_API_KEY="ihr-openai-key-hier"
+
+  # Images bauen
+docker compose build
+
+# Services starten
+docker compose up -d
+
+
 docker compose exec recycle-chat python recycle_agent.py ingest
-docker compose exec -it recycle-chat python recycle_agent.py
+
+
+#Erfolgsmeldung:
+📚 Spiele Recycling-Wissen in Qdrant ein...
+Recycling-Wissen eingespielt: 24 Einträge in 'recycle_docs'
+
+## then run
+docker compose exec -it embedchat python recycle_agent.py
+
+🧐 Was möchten Sie entsorgen? Plastikflasche
+
+🚮 **Plastikflasche**
+
+📦 **Kategorie:** PLASTIC
+📝 **Anleitung:** Plastikflaschen, Verpackungen, Folien → Gelber Sack/Gelbe Tonne. Bitte reinigen.
+
+💡 **Beispiel:** Plastikflasche
+------------------------------------------------------------
+
+# test the second Microservice 
+curl -s http://localhost:8080/health
+
+#Erfolgsanwort:
+{"status":"healthy","service":"recycle-analytics-api"}%  
+
+curl -s -X POST http://localhost:8080/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"item_description": "Batterie"}' | jq
+
+## Erwartete Anwort
+{
+  "item": "Batterie",
+  "predicted_category": "hazardous",
+  "confidence_score": 0.568787,
+  "disposal_instructions": "Batterien, Farben, Chemikalien → Sondermüll/Wertstoffhof. Nicht in Hausmüll!",
+  "similar_items": [
+    "",
+    "",
+    ""
+  ],
+  "environmental_impact": "Sichere Entsorgung schützt Grundwasser"
+}
+
+
 ```
 
 ### 3. Microservice B - recycle-analytics-api  
