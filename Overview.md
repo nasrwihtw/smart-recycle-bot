@@ -138,7 +138,15 @@ docker build -t recycle-embed-chat:latest .
 
 # to create a collection on qdrant
 docker run --rm -it \                 
+
   -e OPENAI_API_KEY="$OPENAI_API_KE" \
+
+
+  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+
+  -e OPENAI_API_KEY="$OPENAI_API_KE" \
+ (added kb8 file)
+
   -e QDRANT_URL="http://host.docker.internal:6333" \
   recycle-embed-chat:latest ingest
 
