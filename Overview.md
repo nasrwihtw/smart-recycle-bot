@@ -89,6 +89,37 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 ```
+Start:
+```bash
+cd qdrant
+docker compose up -d
+curl -s http://localhost:6333/ | jq
+```
+
+Erfolgsmeldung:
+```bash
+{
+  "title": "qdrant - vector search engine",
+  "version": "1.15.5",
+  "commit": "48203e414e4e7f639a6d394fb6e4df695f808e51"
+}
+```
+
+Collection anlegen (1536, Cosine):
+```bash
+curl -X PUT "http://localhost:6333/collections/recycle_docs"   -H "Content-Type: application/json"   -d '{"vectors":{"size":1536,"distance":"Cosine"}}'
+```
+
+Collection query (1536, Cosine):
+```bash
+curl http://localhost:6333/collections
+```
+
+Result
+```bash
+
+{"result":{"collections":[{"name":"recycle_docs"}]},"status":"ok","time":0.000048333}% 
+```
 
 ### 2. Microservice A - recycle-embed-chat
 **Kernfunktionen**:
@@ -101,9 +132,15 @@ services:
 ```bash
 ## Start with Dockerfile
 ## Mircoservice A: recycle-analytics
-cd ../../recycle-embed-chat/app
+cd ./smart-recycle-bot/recycle-embed-chat/app 
 
 docker build -t recycle-embed-chat:latest .
+
+# to create a collection on qdrant
+docker run --rm -it \                 
+  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+  -e QDRANT_URL="http://host.docker.internal:6333" \
+  recycle-embed-chat:latest ingest
 
 ## use instead of $OPENAI_API_KEY the open ai you have
 docker run --rm -it \
@@ -200,9 +237,13 @@ curl -s -X POST http://localhost:8080/analyze \
   -d '{"item_description": "Glasflasche"}' | jq
 
   ## diese Commands ausführen nach der Erstellung docker compose.yaml to start the two Mircoservices
+
+  cd ./smart-recycle-bot/
+
   export OPENAI_API_KEY="ihr-openai-key-hier"
 
   # Images bauen
+
 docker compose build
 
 # Services starten
@@ -297,9 +338,9 @@ docker compose exec -it recycle-chat python recycle_agent.py
 
 # 5. API testen
 curl http://localhost:8080/health
-curl -X POST http://localhost:8080/analyze \
+curl -s -X POST http://localhost:8080/analyze \
   -H "Content-Type: application/json" \
-  -d '{"item_description": "plastic bottle"}'
+  -d '{"item_description": "plastic bottle"}' | jq
 ```
 
 ---
