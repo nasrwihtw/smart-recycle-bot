@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analyticsapi
+  template:
+    metadata:
+      labels:
+        app: analyticsapi
+    spec:
+      containers:
+        - name: analyticsapi
+          image: recycle-analytics-api:latest
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: secret-openai
+            - configMapRef:
+                name: configmap-recycle
+          ports:
+            - containerPort: 8080

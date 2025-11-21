@@ -89,6 +89,37 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 ```
+Start:
+```bash
+cd qdrant
+docker compose up -d
+curl -s http://localhost:6333/ | jq
+```
+
+Erfolgsmeldung:
+```bash
+{
+  "title": "qdrant - vector search engine",
+  "version": "1.15.5",
+  "commit": "48203e414e4e7f639a6d394fb6e4df695f808e51"
+}
+```
+
+Collection anlegen (1536, Cosine):
+```bash
+curl -X PUT "http://localhost:6333/collections/recycle_docs"   -H "Content-Type: application/json"   -d '{"vectors":{"size":1536,"distance":"Cosine"}}'
+```
+
+Collection query (1536, Cosine):
+```bash
+curl http://localhost:6333/collections
+```
+
+Result
+```bash
+
+{"result":{"collections":[{"name":"recycle_docs"}]},"status":"ok","time":0.000048333}% 
+```
 
 ### 2. Microservice A - recycle-embed-chat
 **Kernfunktionen**:
@@ -101,9 +132,15 @@ services:
 ```bash
 ## Start with Dockerfile
 ## Mircoservice A: recycle-analytics
-cd ../../recycle-embed-chat/app
+cd ./smart-recycle-bot/recycle-embed-chat/app 
 
 docker build -t recycle-embed-chat:latest .
+
+# to create a collection on qdrant
+docker run --rm -it \                 
+  -e OPENAI_API_KEY="$OPENAI_API_KE" \
+  -e QDRANT_URL="http://host.docker.internal:6333" \
+  recycle-embed-chat:latest ingest
 
 ## use instead of $OPENAI_API_KEY the open ai you have
 docker run --rm -it \
@@ -200,9 +237,13 @@ curl -s -X POST http://localhost:8080/analyze \
   -d '{"item_description": "Glasflasche"}' | jq
 
   ## diese Commands ausführen nach der Erstellung docker compose.yaml to start the two Mircoservices
+
+  cd ./smart-recycle-bot/
+
   export OPENAI_API_KEY="ihr-openai-key-hier"
 
   # Images bauen
+
 docker compose build
 
 # Services starten
@@ -297,27 +338,78 @@ docker compose exec -it recycle-chat python recycle_agent.py
 
 # 5. API testen
 curl http://localhost:8080/health
-curl -X POST http://localhost:8080/analyze \
+curl -s -X POST http://localhost:8080/analyze \
   -H "Content-Type: application/json" \
-  -d '{"item_description": "plastic bottle"}'
+  -d '{"item_description": "plastic bottle"}' | jq
 ```
 
 ---
 
 ## ☸️ Kubernetes Deployment
 
+
 ### Manifests anwenden
 ```bash
 # Alle Komponenten deployen
 kubectl apply -f k8s/
+
 
 # Wissensbasis initialisieren
 kubectl exec -it deployment/recycle-chat -- python recycle_agent.py ingest
 
 # API Zugriff
 kubectl port-forward service/recycle-api 8080:8080
+
+
+Apply & warten:
+```bash
+kubectl apply -f secret-openai.yaml -f configmap-sentinel.yaml -f deployment-qdrant.yaml -f service-qdrant.yaml
+
+kubectl wait --for=condition=available deploy/qdrant --timeout=120s
+
+Erfolgsmeldung=> deployment.apps/qdrant condition met
 ```
 
+Start & Nutzung:
+```bash
+kubectl apply -f deployment-embedchat.yaml
+
+kubectl wait --for=condition=available deploy/embedchat --timeout=120s
+
+Erfolgsmeldung=> deployment.apps/embedchat condition met
+
+POD=$(kubectl get pods -l app=embedchat -o jsonpath='{.items[0].metadata.name}')
+
+echo $POD
+
+kubectl exec -it "$POD" -- bash -lc 'python recycle_agent.py ingest' 
+
+Erfolgsmeldung=> kubectl exec -it "$POD" -- bash -lc 'python recycle_agent.py ingest'             
+2025-11-21 20:27:30,367 INFO Collection 'recycle_docs' exists.
+2025-11-21 20:27:30,367 INFO Ingesting recycling knowledge into Qdrant...
+2025-11-21 20:27:31,285 INFO HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-11-21 20:27:32,144 INFO HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-11-21 20:27:32,849 INFO HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-11-21 20:27:33,233 INFO Ingest completed: 80 items in 'recycle_docs'
+
+kubectl exec -it "$POD" -- bash -lc 'python recycle_agent.py'
+
+# 🧐 Was möchten Sie entsorgen? Reinigungsmittel
+#Mögliche Antwort
+025-11-21 20:30:50,595 INFO HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+
+🚮 **Reinigungsmittel**
+
+📦 **Kategorie:** HAZARDOUS
+
+📝 **Anleitung:** Batterien, Farben, Chemikalien → Sondermüll/Wertstoffhof. Nicht in Hausmüll!
+
+💡 **Beispiel:** Reinigungsmittel
+
+(Ähnlichkeits-Score: 0.566)
+------------------------------------------------------------
+🧐 Was möchten Sie entsorgen? 
+```
 ### Kubernetes Komponenten
 - **Secret**: `secret-openai.yaml` - OpenAI API Key
 - **ConfigMap**: `configmap-recycle.yaml` - Konfiguration
